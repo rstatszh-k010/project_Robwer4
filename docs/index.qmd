@@ -29,6 +29,38 @@ Als Grundlage zur Beurteilung von Schwermetallgehalten im Boden dienen die Richt
 
 # Daten Aufbereitung
 
+Nicht-relevante Spalten löschen für vereinfachte Transformation in breite Tabelle.
+
+```{r}
+fam_ga_deleted <- fam_ga %>% select(-c(y, m.LaborID, m.a.jahr, HorizontNr, m.ProbenIDs, mad.y, mad.y.orig, N.used))
+
+```
+
+Lange Tabelle in breite Tabelle transformieren.
+
+```{r}
+fam_ga_breit <- pivot_wider(
+  data = fam_ga_deleted,
+  names_from = "para",
+  values_from = "y.orig")
+```
+
+Spaltenbeschriftungen unbenennen
+
+```{r}
+ famga_schwermet1 <- fam_ga_breit %>% rename(
+  Periode = periode,
+  Probenahmedatum = p.dat)
+```
+
+Spalten Anordnung ändern
+
+```{r}
+famga_schwermet <- famga_schwermet1 %>% relocate(c(PHCA, ORG_SUB), .after = last_col())
+```
+
+Spalten mit SzandortID 9401-9416 löschen, da diese Standorte lediglich in der letzten Messperiode beprobt wurden
+
 # Daten Visualisierung
 
 # 
