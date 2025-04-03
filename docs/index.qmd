@@ -10,7 +10,7 @@ library(tidyverse)
 ```
 
 ```{r}
-fam_ga <- read_csv2(here::here("daten/raw/fg_20250331_v2.csv"))
+familiengaerten_lang <- read_csv2(here::here("daten/raw/fg_20250331_v2.csv"))
 ```
 
 # Einleitung
@@ -32,34 +32,39 @@ Als Grundlage zur Beurteilung von Schwermetallgehalten im Boden dienen die Richt
 Nicht-relevante Spalten löschen für vereinfachte Transformation in breite Tabelle.
 
 ```{r}
-fam_ga_deleted <- fam_ga %>% select(-c(y, m.LaborID, m.a.jahr, HorizontNr, m.ProbenIDs, mad.y, mad.y.orig, N.used))
-
+familiengaerten_lang_delet <- familiengaerten_lang |> 
+  select(-c(y,
+            m.LaborID,
+            m.a.jahr,
+            HorizontNr,
+            m.ProbenIDs, 
+            mad.y,
+            mad.y.orig,
+            N.used))
 ```
 
 Lange Tabelle in breite Tabelle transformieren.
 
+Spaltenbeschriftungen unbenennen.
+
+Spalten Anordnung ändern.
+
 ```{r}
-fam_ga_breit <- pivot_wider(
-  data = fam_ga_deleted,
+familiengaerten_breit <- pivot_wider(
+  data = familiengaerten_lang_delet,
   names_from = "para",
-  values_from = "y.orig")
-```
-
-Spaltenbeschriftungen unbenennen
-
-```{r}
- famga_schwermet1 <- fam_ga_breit %>% rename(
-  Periode = periode,
-  Probenahmedatum = p.dat)
-```
-
-Spalten Anordnung ändern
-
-```{r}
-famga_schwermet <- famga_schwermet1 %>% relocate(c(PHCA, ORG_SUB), .after = last_col())
+  values_from = "y.orig") |> 
+  rename(Periode = periode,
+         Probenahmedatum = p.dat) |> 
+  relocate(c(PHCA, ORG_SUB),
+           .after = last_col())
 ```
 
 Spalten mit SzandortID 9401-9416 löschen, da diese Standorte lediglich in der letzten Messperiode beprobt wurden
+
+```{r}
+Familiengaerten_breit_zeitreihe <- familiengaerten_breit
+```
 
 # Daten Visualisierung
 
