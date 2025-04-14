@@ -65,8 +65,15 @@ Zeilen mit StandortID 9401-9416 löschen, da diese Standorte lediglich in der le
 Spalte mit Jahr hizufügen
 
 ```{r}
-Familiengaerten_zeitreihe_breit <- familiengaerten_breit |> 
+familiengaerten_zeitreihe_breit <- familiengaerten_breit |> 
   filter(!(StandortID >= 9401))
+```
+
+Prozessierte/aufbereitete Daten speichern:
+
+```{r}
+write_csv(x = familiengaerten_zeitreihe_breit, 
+          here::here("daten/processed/familiengaerten_zeitreihe_breit.csv"))
 ```
 
 # Daten Visualisierung
