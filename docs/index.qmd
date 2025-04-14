@@ -60,10 +60,13 @@ familiengaerten_breit <- pivot_wider(
            .after = last_col())
 ```
 
-Spalten mit SzandortID 9401-9416 löschen, da diese Standorte lediglich in der letzten Messperiode beprobt wurden
+Zeilen mit StandortID 9401-9416 löschen, da diese Standorte lediglich in der letzten Messperiode beprobt wurden
+
+Spalte mit Jahr hizufügen
 
 ```{r}
-Familiengaerten_breit_zeitreihe <- familiengaerten_breit
+Familiengaerten_zeitreihe_breit <- familiengaerten_breit |> 
+  filter(!(StandortID >= 9401))
 ```
 
 # Daten Visualisierung
