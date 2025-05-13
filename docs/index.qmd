@@ -1,38 +1,55 @@
 ---
-title: "Abschlussprojekt"
+title: "Abschlussprojekt rstatsZH"
 author: "Robwer4"
-format: html
+date: 2025.05.13
+format:
+  html:
+    toc: true
+execute:
+  warning: false
 editor: visual
 ---
 
 ```{r}
 library(tidyverse)
+library(patchwork)
+library(knitr)
+library(dplyr)
+library(kableExtra)
 ```
 
 ```{r}
-familiengaerten_lang <- read_csv2(here::here("daten/raw/fg_20250331_v2.csv"))
+familiengaerten_lang_raw <- read_csv2(here::here("daten/raw/fg_20250331_v2.csv"))
+
 ```
 
 # Einleitung
 
-## Daten
+Die Kantonale Bodenüberwachung (oder kurz: KaBo) ist ein langfristiges Monitoringprogramm der Fachstelle Bodenschutz. An über 500 Standorten im Kanton Zürich werden Böden regelmässig beprobt und untersucht. Analysiert werden chemische und physikalische Eigenschaften des Bodens.
 
-Die Daten beinhalten Schwermetallgehalte \[ppm\] sowie die Begleitparameter pH und organischer Kohlenstoff \[%\] von Bodenproben eines Familengartenareals. Auf dem Areal wurden während 6 Zeitpunkten (1999, 2004, 2009, 2014, 2019 und 2024), auf 16 Standorten, Bodenproben aus den Tiefen 0-20 cm und 40-60 cm entnommen und auf die oben genannten Parameter analysiert.
-
-Als Grundlage zur Beurteilung von Schwermetallgehalten im Boden dienen die Richt-, Prüf- und Sanierungswerte der "Verordnung über Belastungen im Boden" (VBBo).
+Das vorliegende Projekt befasst sich mit einem Familiengartenareal im Kanton Zürich, in dem zu sechs Zeitpunkten (1999, 2004, 2009, 2014, 2019 und 2024) an 16 Standorten Bodenproben entnommen wurden. Der Fokus der Arbeit liegt auf einer groben Beschreibung der Belastungssituation im Familiengartenareal und weniger auf der Beurteilung der Schwermetallgehalte gemäss der „Verordnung über Belastungen des Bodens“ (VBBo) und dem „Handbuch – Gefährdungsabschätzung und Massnahmen bei schadstoffbelasteten Böden“.
 
 ## Analyseziele
 
 1.  Darstellung der Verteilungen der Schwermetallgehalte (Boxplot).
-2.  Darstellung der zeitlichen Verläufe, sowie der zeitlichen Trends (lineare Regression) der verschiedenen Schwermetallgehlate pro Standort.
-3.  Beurteilung der der aktuellsten Messungen (2024) anhand der Richt-, Prüf- und Sanierungswerte gemäss VBBo.
+2.  Darstellung der zeitlichen Verläufe sowie der zeitlichen Trends (lineare Regression) der verschiedenen Schwermetallgehalte.
+3.  Analyse der Resultate hinsichtlich ihrer räumlichen Verteilung (heterogene/ homogene Verteilung).
 
-# Daten Aufbereitung
+# Daten
 
-Nicht-relevante Spalten löschen für vereinfachte Transformation in breite Tabelle.
+Die Daten beinhalten Schwermetallgehalte \[ppm\] sowie die Begleitparameter pH und organischer Kohlenstoff \[%\] von Bodenproben eines Familiengartenareals. Auf dem Areal wurden zu sechs Zeitpunkten (1999, 2004, 2009, 2014, 2019 und 2024) an 16 Standorten Bodenproben aus den Tiefen 0–20 cm und 40–60 cm entnommen und auf die oben genannten Parameter analysiert.
 
 ```{r}
-familiengaerten_lang_delet <- familiengaerten_lang |> 
+codebook <- read_csv2(here::here("daten/processed/codebook.csv"))
+```
+
+## Daten Aufbereitung
+
+```{r}
+#Nicht-relevante Spalten löschen für vereinfachte Transformation in breite Tabelle
+#Spalte mit Jahr hinzufügen (Grundlage Datum)
+
+familiengaerten_lang <- familiengaerten_lang_raw |> 
   select(-c(y,
             m.LaborID,
             m.a.jahr,
@@ -40,42 +57,396 @@ familiengaerten_lang_delet <- familiengaerten_lang |>
             m.ProbenIDs, 
             mad.y,
             mad.y.orig,
-            N.used))
+            N.used)) |> 
+    mutate(Jahr = year(ymd(p.dat))) |> 
+    rename(Periode = periode,
+         Probenahmedatum = p.dat,
+         Parameter = para,
+         Wert = y.orig) |> 
+  relocate(c(Probenart, Parameter, Wert),
+           .after = last_col()) 
+
+familiengaerten_lang$Wert <- as.numeric(familiengaerten_lang$Wert)
+
+glimpse(familiengaerten_lang)
 ```
 
-Lange Tabelle in breite Tabelle transformieren.
-
-Spaltenbeschriftungen unbenennen.
-
-Spalten Anordnung ändern.
-
 ```{r}
+#Lange Tabelle in breite Tabelle transformieren
+#Spaltenbeschriftungen unbenennen
+#Spalten Anordnung ändern
+
 familiengaerten_breit <- pivot_wider(
-  data = familiengaerten_lang_delet,
-  names_from = "para",
-  values_from = "y.orig") |> 
-  rename(Periode = periode,
-         Probenahmedatum = p.dat) |> 
+  data = familiengaerten_lang,
+  names_from = "Parameter",
+  values_from = "Wert") |> 
   relocate(c(PHCA, ORG_SUB),
            .after = last_col())
 ```
 
-Zeilen mit StandortID 9401-9416 löschen, da diese Standorte lediglich in der letzten Messperiode beprobt wurden
-
-Spalte mit Jahr hizufügen
-
 ```{r}
+#Zeilen mit StandortID 9401-9416 in breiter und langer Tabelle löschen, da diese Standorte lediglich in der letzten Messperiode beprobt wurden.
+
 familiengaerten_zeitreihe_breit <- familiengaerten_breit |> 
+  filter(!(StandortID >= 9401))
+
+familiengaerten_zeitreihe_lang <- familiengaerten_lang |> 
   filter(!(StandortID >= 9401))
 ```
 
-Prozessierte/aufbereitete Daten speichern:
-
 ```{r}
+#Prozessierte/aufbereitete Daten speichern
+
 write_csv(x = familiengaerten_zeitreihe_breit, 
           here::here("daten/processed/familiengaerten_zeitreihe_breit.csv"))
+
+write_csv(x = familiengaerten_zeitreihe_lang, 
+          here::here("daten/processed/familiengaerten_zeitreihe_lang.csv"))
 ```
 
-# Daten Visualisierung
+# Ergebnisse
 
-# 
+## Boxplots
+
+In @fig-boxplot_sw-gehalte werden die Schwermetallgehalte der letzten Untersuchungsperiode (2024) in einem Boxplot dargestellt. Damit alle Schwermetalle in einem gemeinsamen Boxplot dargestellt werden können, werden die Gehalte als Prozentsatz des jeweiligen Richtwerts angegeben.
+
+Folgend sind die Richtwerte gemäss VBBo wiedergegeben:
+
+Cr: 50 ppm, Ni: 50 ppm, Cu: 40 ppm, Zn: 150 ppm, Cd: 0.8 ppm, Hg: 0.5 ppm und Pb: 50 ppm
+
+```{r}
+#| label: fig-boxplot_sw-gehalte
+#| fig-cap: "Schwermetallgehalte in % zum RIchtwert"
+#| warning: false
+
+familiengarten_2024_ob_sm_lang <- familiengaerten_zeitreihe_lang |> 
+  filter(Jahr == 2024,
+         Probenart == "OBER-0-20",
+         !Parameter %in% c("ORG_SUB", "PHCA", "Hg_AMA_PPM")) |> 
+  mutate(Proz_zum_Richtwert = case_when(
+    Parameter == "CDT_PPM" ~ Wert*100/0.8,
+    Parameter == "CRT_PPM" ~ Wert*100/50,
+    Parameter == "CUT_PPM" ~ Wert*100/40,
+    Parameter == "HGT_PPM" ~ Wert*100/0.5,
+    Parameter == "NIT_PPM" ~ Wert*100/50,
+    Parameter == "PBT_PPM" ~ Wert*100/50,
+    Parameter == "ZNT_PPM" ~ Wert*100/150,
+    TRUE ~ NA_real_)) |> 
+  mutate(Parameter =case_when(
+    Parameter == "CDT_PPM" ~ "Cd",
+    Parameter == "CRT_PPM" ~ "Cr",
+    Parameter == "CUT_PPM" ~ "Cu",
+    Parameter == "HGT_PPM" ~ "Hg",
+    Parameter == "NIT_PPM" ~ "Ni",
+    Parameter == "PBT_PPM" ~ "Pb",
+    Parameter == "ZNT_PPM" ~ "Zn"
+    ))
+  
+
+  ggplot(data = familiengarten_2024_ob_sm_lang,
+       mapping = aes (x = Parameter,
+                      y = Proz_zum_Richtwert)) +
+    geom_boxplot(fill = "lightblue")+
+    theme_minimal() +
+    coord_cartesian(ylim = c(NA, 600))+   #die y-Achse auf 600 % begrenzen, Ausreisser (bei Blei 1530 %)in die Berechnung miteinbeziehen aber nicht angezeigen
+    scale_y_continuous(breaks = seq(0, 600, by = 100))+   #Achsenbeschriftung in 100%-Schritten
+    ylab("Schwermetallgehalte in % zum Richtwert") +
+    theme(axis.title.x = element_blank())+
+    geom_hline(yintercept = 100, color = "grey", linewidth = 0.5, linetype = "dashed") 
+```
+
+Auf dem Familiengartenareal liegen erhöhte Schwermetallgehalte durch Cadmium, Kupfer, Quecksilber, Blei und Zink vor (\@fig-boxplot_sw-gehalte). Insbesondere werden die Richtwerte für Blei und Kupfer deutlich überschritten (Mediane \> 350 %). Auffällig ist zudem, dass der Boxplot für Blei einen hohen Interquartilsabstand sowie einen Ausreißer von über 1500 % des Richtwerts aufweist.
+
+## Liniendiagramme
+
+```{r}
+#Datenaufbereitung für Liniendiagramm
+
+# Oberboden
+familiengaerten_zeitreihe_ob_breit <- familiengaerten_zeitreihe_breit |> 
+  filter(Probenart == "OBER-0-20")
+
+familiengaerten_zeitreihe_mediane_ob <- familiengaerten_zeitreihe_ob_breit |> 
+  group_by(Jahr) |> 
+  summarise(across(c(CRT_PPM, NIT_PPM, CUT_PPM, ZNT_PPM, CDT_PPM, HGT_PPM, PBT_PPM), ~median(.x, na.rm = TRUE), .names = "Median_{.col}"))
+
+# Unterboden
+familiengaerten_zeitreihe_ub_breit <- familiengaerten_zeitreihe_breit |> 
+  filter(Probenart == "UNTER40-60")
+
+familiengaerten_zeitreihe_mediane_ub <- familiengaerten_zeitreihe_ub_breit |> 
+  group_by(Jahr) |> 
+  summarise(across(c(CRT_PPM, NIT_PPM, CUT_PPM, ZNT_PPM, CDT_PPM, HGT_PPM, PBT_PPM), ~median(.x, na.rm = TRUE), .names = "Median_{.col}"))
+```
+
+In @fig-liniendiagramm_cr bis @fig-liniendiagramm_pb werden für die einzelnen Schwermetalle die Mediane aller Standorte pro Jahr in einem Linien- und Punktdiagramm dargestellt. Die Diagramme für den Ober- und Unterboden werden nebeneinander abgebildet. Um einen möglichen Trend sowie eine potenzielle Verlagerung vom Ober- in den Unterboden erkennen zu können, wurde zudem eine lineare Regression eingefügt.
+
+```{r}
+#| label: fig-liniendiagramm_cr
+#| fig-cap: "zeitlicher Verlauf der Chromgehalte"
+#| warning: false
+
+# Liniendiagramme für Cr
+cr_ob <- ggplot(data = familiengaerten_zeitreihe_mediane_ob,
+       aes(x = Jahr, y = Median_CRT_PPM))+
+  geom_line(color = "lightblue") +
+  geom_point(color = "darkblue") +
+  theme_minimal() +
+  geom_smooth(method = "lm", se = FALSE, color = "green", linewidth = 0.5) +
+  scale_x_continuous(breaks = c(1999, 2004, 2009, 2014, 2019, 2024)) +
+  ylab("Cr-Gehalt in ppm") +
+  theme(axis.title.x = element_blank()) +
+  ggtitle("Oberboden")
+
+cr_ub <- ggplot(data = familiengaerten_zeitreihe_mediane_ub,
+       aes(x = Jahr, y = Median_CRT_PPM))+
+  geom_line(color = "lightblue") +
+  geom_point(color = "darkblue") +
+  theme_minimal() +
+  geom_smooth(method = "lm", se = FALSE, color = "green", linewidth = 0.5) +
+  scale_x_continuous(breaks = c(1999, 2004, 2009, 2014, 2019, 2024)) +
+  ylab("Cr-Gehalt in ppm") +
+  theme(axis.title.x = element_blank()) +
+  ggtitle("Unterboden")
+
+cr_ob + cr_ub
+```
+
+```{r}
+#| label: fig-liniendiagramm_ni
+#| fig-cap: "zeitlicher Verlauf der Nickelgehalte"
+#| warning: false
+
+# Liniendiagramme für Ni
+ni_ob <- ggplot(data = familiengaerten_zeitreihe_mediane_ob,
+       aes(x = Jahr, y = Median_NIT_PPM))+
+  geom_line(color = "lightblue") +
+  geom_point(color = "darkblue") +
+  theme_minimal() +
+  geom_smooth(method = "lm", se = FALSE, color = "green", linewidth = 0.5) +
+  scale_x_continuous(breaks = c(1999, 2004, 2009, 2014, 2019, 2024)) +
+  ylab("Ni-Gehalt in ppm") +
+  theme(axis.title.x = element_blank()) +
+  ggtitle("Oberboden")
+
+ni_ub <- ggplot(data = familiengaerten_zeitreihe_mediane_ub,
+       aes(x = Jahr, y = Median_NIT_PPM))+
+  geom_line(color = "lightblue") +
+  geom_point(color = "darkblue") +
+  theme_minimal() +
+  geom_smooth(method = "lm", se = FALSE, color = "green", linewidth = 0.5) +
+  scale_x_continuous(breaks = c(1999, 2004, 2009, 2014, 2019, 2024)) +
+  ylab("Ni-Gehalt in ppm") +
+  theme(axis.title.x = element_blank()) +
+  ggtitle("Unterboden")
+
+ni_ob + ni_ub
+```
+
+Von 1999 bis 2024 ist, über das gesamte Familiengartenareal betrachtet, sowohl im Ober- als auch im Unterboden eine Abnahme der Chrom- und Nickelgehalte festzustellen (@fig-liniendiagramm_cr und @fig-liniendiagramm_ni).
+
+```{r}
+#| label: fig-liniendiagramm_cu
+#| fig-cap: "zeitlicher Verlauf der Kupfergehalte"
+#| warning: false
+
+# Liniendiagramme für Cu
+cu_ob <- ggplot(data = familiengaerten_zeitreihe_mediane_ob,
+       aes(x = Jahr, y = Median_CUT_PPM))+
+  geom_line(color = "lightblue") +
+  geom_point(color = "darkblue") +
+  theme_minimal() +
+  geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 0.5) +
+  scale_x_continuous(breaks = c(1999, 2004, 2009, 2014, 2019, 2024)) +
+  ylab("Cu-Gehalt in ppm") +
+  theme(axis.title.x = element_blank()) +
+  ggtitle("Oberboden")
+
+cu_ub <- ggplot(data = familiengaerten_zeitreihe_mediane_ub,
+       aes(x = Jahr, y = Median_CUT_PPM))+
+  geom_line(color = "lightblue") +
+  geom_point(color = "darkblue") +
+  theme_minimal() +
+  geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 0.5) +
+  scale_x_continuous(breaks = c(1999, 2004, 2009, 2014, 2019, 2024)) +
+  ylab("Cu-Gehalt in ppm") +
+  theme(axis.title.x = element_blank()) +
+  ggtitle("Unterboden")
+
+cu_ob + cu_ub
+```
+
+Die Mediane der Kupfergehalte im Oberboden weisen einen eindeutigen Anstieg auf. Im Unterboden ist keine eindeutige Tendenz zu erkennen (@fig-liniendiagramm_cu).
+
+```{r}
+#| label: fig-liniendiagramm_zn
+#| fig-cap: "zeitlicher Verlauf der Zinkgehalte"
+#| warning: false
+
+# Liniendiagramme für Zn
+zn_ob <- ggplot(data = familiengaerten_zeitreihe_mediane_ob,
+       aes(x = Jahr, y = Median_ZNT_PPM))+
+  geom_line(color = "lightblue") +
+  geom_point(color = "darkblue") +
+  theme_minimal() +
+  geom_smooth(method = "lm", se = FALSE, color = "green", linewidth = 0.5) +
+  scale_x_continuous(breaks = c(1999, 2004, 2009, 2014, 2019, 2024)) +
+  ylab("Zn-Gehalt in ppm") +
+  theme(axis.title.x = element_blank()) +
+  ggtitle("Oberboden")
+
+zn_ub <- ggplot(data = familiengaerten_zeitreihe_mediane_ub,
+       aes(x = Jahr, y = Median_ZNT_PPM))+
+  geom_line(color = "lightblue") +
+  geom_point(color = "darkblue") +
+  theme_minimal() +
+  geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 0.5) +
+  scale_x_continuous(breaks = c(1999, 2004, 2009, 2014, 2019, 2024)) +
+  ylab("Zn-Gehalt in ppm") +
+  theme(axis.title.x = element_blank()) +
+  ggtitle("Unterboden")
+
+zn_ob + zn_ub
+```
+
+```{r}
+#| label: fig-liniendiagramm_cd
+#| fig-cap: "zeitlicher Verlauf der Cadmiumgehalte"
+#| warning: false
+
+# Liniendiagramme für Cd
+cd_ob <- ggplot(data = familiengaerten_zeitreihe_mediane_ob,
+       aes(x = Jahr, y = Median_CDT_PPM))+
+  geom_line(color = "lightblue") +
+  geom_point(color = "darkblue") +
+  theme_minimal() +
+  geom_smooth(method = "lm", se = FALSE, color = "green", linewidth = 0.5) +
+  scale_x_continuous(breaks = c(1999, 2004, 2009, 2014, 2019, 2024)) +
+  ylab("Cd-Gehalt in ppm") +
+  theme(axis.title.x = element_blank()) +
+  ggtitle("Oberboden")
+
+cd_ub <- ggplot(data = familiengaerten_zeitreihe_mediane_ub,
+       aes(x = Jahr, y = Median_CDT_PPM))+
+  geom_line(color = "lightblue") +
+  geom_point(color = "darkblue") +
+  theme_minimal() +
+  geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 0.5) +
+  scale_x_continuous(breaks = c(1999, 2004, 2009, 2014, 2019, 2024)) +
+  ylab("Cd-Gehalt in ppm") +
+  theme(axis.title.x = element_blank()) +
+  ggtitle("Unterboden")
+
+cd_ob + cd_ub
+```
+
+```{r}
+#| label: fig-liniendiagramm_hg
+#| fig-cap: "zeitlicher Verlauf der Quecksilbergehalte"
+#| warning: false
+
+# Liniendiagramme für Hg
+hg_ob <- ggplot(data = familiengaerten_zeitreihe_mediane_ob,
+       aes(x = Jahr, y = Median_HGT_PPM))+
+  geom_line(color = "lightblue") +
+  geom_point(color = "darkblue") +
+  theme_minimal() +
+  geom_smooth(method = "lm", se = FALSE, color = "green", linewidth = 0.5) +
+  scale_x_continuous(breaks = c(1999, 2004, 2009, 2014, 2019, 2024)) +
+  ylab("Hg-Gehalt in ppm") +
+  theme(axis.title.x = element_blank()) +
+  ggtitle("Oberboden")
+
+hg_ub <- ggplot(data = familiengaerten_zeitreihe_mediane_ub,
+       aes(x = Jahr, y = Median_HGT_PPM))+
+  geom_line(color = "lightblue") +
+  geom_point(color = "darkblue") +
+  theme_minimal() +
+  geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 0.5) +
+  scale_x_continuous(breaks = c(1999, 2004, 2009, 2014, 2019, 2024)) +
+  ylab("Hg-Gehalt in ppm") +
+  theme(axis.title.x = element_blank()) +
+  ggtitle("Unterboden")
+
+hg_ob + hg_ub
+```
+
+Die Zink-, Cadmium-, und Quecksilbergehalte im Oberboden nehmen von 1999 bis 2024 deutlich ab. Im Unterboden ist keine eindeutige Tendenz zu erkennen (@fig-liniendiagramm_zn, @fig-liniendiagramm_cd und @fig-liniendiagramm_hg).
+
+```{r}
+#| label: fig-liniendiagramm_pb
+#| fig-cap: "zeitlicher Verlauf der Bleigehalte"
+#| warning: false
+
+# Liniendiagramme für Pb
+pb_ob <- ggplot(data = familiengaerten_zeitreihe_mediane_ob,
+       aes(x = Jahr, y = Median_PBT_PPM))+
+  geom_line(color = "lightblue") +
+  geom_point(color = "darkblue") +
+  theme_minimal() +
+  geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 0.5) +
+  scale_x_continuous(breaks = c(1999, 2004, 2009, 2014, 2019, 2024)) +
+  ylab("Pb-Gehalt in ppm") +
+  theme(axis.title.x = element_blank()) +
+  ggtitle("Oberboden")
+
+pb_ub <- ggplot(data = familiengaerten_zeitreihe_mediane_ub,
+       aes(x = Jahr, y = Median_PBT_PPM))+
+  geom_line(color = "lightblue") +
+  geom_point(color = "darkblue") +
+  theme_minimal() +
+  geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 0.5) +
+  scale_x_continuous(breaks = c(1999, 2004, 2009, 2014, 2019, 2024)) +
+  ylab("Pb-Gehalt in ppm") +
+  theme(axis.title.x = element_blank()) +
+  ggtitle("Unterboden")
+
+pb_ob + pb_ub
+```
+
+Die Bleigehalte weisen sowohl im Ober- als auch im Unterboden keine eindeutige Tendenz auf (@fig-liniendiagramm_pb).
+
+## Tabelle
+
+In der nachfolgenden Tabelle (@tbl-mediane_standartabweichung) sind die Mediane und Variationskoeffizienten der einzelnen Schwermetalle und Standorte zusammengefasst (alle Messwerte von 1999–2024).
+
+```{r}
+#| label: tbl-mediane_standartabweichung
+#| tab-cap: "Mediane und Stanardabweichungen der einzelnen Standorte"
+#| warning: false
+
+familiengaerten_mdn_sd_pro_Standort <- familiengaerten_zeitreihe_breit |> 
+  filter(Probenart == "OBER-0-20") |> 
+  group_by(StandortID) |> 
+  summarise(
+    "Mdn Cr [ppm]" = median(CRT_PPM, na.rm = TRUE),
+    "CV Cr [ppm]" = sd(CRT_PPM, na.rm = TRUE)/median(CRT_PPM, na.rm = TRUE)*100,
+    "Mdn Ni [ppm]" = median(NIT_PPM, na.rm = TRUE),
+    "CV Ni [ppm]" = sd(NIT_PPM, na.rm = TRUE)/median(NIT_PPM, na.rm = TRUE)*100,
+    "Mdn Cu [ppm]" = median(CUT_PPM, na.rm = TRUE),
+    "CV Cu [ppm]" = sd(CUT_PPM, na.rm = TRUE)/median(CUT_PPM, na.rm = TRUE)*100,
+    "Mdn Zn [ppm]" = median(ZNT_PPM, na.rm = TRUE),
+    "CV Zn [ppm]" = sd(ZNT_PPM, na.rm = TRUE)/median(ZNT_PPM, na.rm = TRUE)*100,
+    "Mdn Cd [ppm]" = median(CDT_PPM, na.rm = TRUE),
+    "CV Cd [ppm]" = sd(CDT_PPM, na.rm = TRUE)/median(CDT_PPM, na.rm = TRUE)*100,
+    "Mdn Hg [ppm]" = median(HGT_PPM, na.rm = TRUE),
+    "CV Hg [ppm]" = sd(HGT_PPM, na.rm = TRUE)/median(HGT_PPM, na.rm = TRUE)*100,
+    "Mdn Pb [ppm]" = median(PBT_PPM, na.rm = TRUE),
+    "CV Pb [ppm]" = sd(PBT_PPM, na.rm = TRUE)/median(PBT_PPM, na.rm = TRUE)*100
+  )
+
+kable(familiengaerten_mdn_sd_pro_Standort, digits = 2, align = "c") |> 
+  kable_styling(bootstrap_options = "bordered")
+```
+
+Unter der Annahme, dass ein Variationskoeffizient (CV) von mehr als 20 % als hoch betrachtet wird, weisen vier Standorte für Kupfer und sieben Standorte für Blei erhöhte CV-Werte auf. Drei der sieben Standorte mit erhöhtem CV für Blei haben sogar einen CV von über 100 % (@tbl-mediane_standartabweichung).
+
+# Schlussfolgerung
+
+-   Im Familiengartenareal liegen flächendeckend erhöhte Schwermetallgehalte durch Cadmium, Kupfer, Quecksilber, Blei und Zink vor (@fig-boxplot_sw-gehalte und @tbl-mediane_standartabweichung). Dafür kann es verschiedene Ursachen geben. So können die Belastungen beispielsweise auf das Ausbringen von Klärschlamm, Altlasten im Untergrund, Emissionen aus der Industrie sowie Tätigkeiten der Bewirtschafter (zum Beispiel das Ausbringen schwermetallhaltiger Pflanzenschutzmittel oder die unsachgemäße Handhabung von schwermetallhaltigen Holzschutzmitteln und Lacken) zurückzuführen sein.
+
+-   Der hohe Interquartilsabstand für Blei (@fig-boxplot_sw-gehalte) sowie die stark erhöhten Variationskoeffizienten (@tbl-mediane_standartabweichung) weisen auf eine heterogene räumliche Verteilung von Blei hin. Der Ausreißer von über 1500 % des Richtwerts deutet zudem auf eine partikuläre Bleibelastung hin.
+
+-   Die Kupfergehalte im Oberboden sind von 1999 bis 2024 angestiegen (@fig-liniendiagramm_cu). Die erhöhten Variationskoeffizienten an drei Standorten (@tbl-mediane_standartabweichung) könnten ebenfalls auf den Anstieg des Kupfergehalts im Oberboden zurückzuführen sein. Ursache für den Anstieg im Oberboden kann die Anwendung von kupferhaltigen Pflanzenschutzmitteln (Fungizide) sein.
+
+-   Die Zink-, Cadmium- und Quecksilbergehalte im Oberboden nehmen von 1999 bis 2024 deutlich ab (@fig-liniendiagramm_zn, @fig-liniendiagramm_cd und @fig-liniendiagramm_hg). Eine Abnahme der Schwermetallgehalte im Oberboden kann verschiedene Gründe haben, zum Beispiel eine Verlagerung vom Ober- in den Unterboden, eine Verdünnung durch zugeführtes Substrat und/oder eine Reduktion der Schwermetallgehalte durch abgeführtes Pflanzenmaterial.

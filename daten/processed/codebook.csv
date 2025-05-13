@@ -1,1 +1,17 @@
 variable_name;beschreibung
+StandortID;ID des Untersuchungsstandorts
+periode;Untersuchungsperiode (1-6)
+Probenahmedatum;Datum der Probenahme
+Jahr;Jahr der Probenahme
+OBER-0-20;Oberbodenproben 0-20cm, Mischproben von 16-25 Einstichen
+UNTER40-60;Unterbodenproben 0-40cm, Mischproben von 16-25 Einstichen
+CRT_PPM;Chrom Totalgehalt gemäss VBBo in mg/kg
+NIT_PPM;Nickel Totalgehalt gemäss VBBo in mg/kg
+CUT_PPM;Kupfer Totalgehalt gemäss VBBo in mg/kg
+ZNT_PPM;Zink Totalgehalt gemäss VBBo in mg/kg
+CDT_PPM;Cadmium Totalgehalt gemäss VBBo in mg/kg
+HGT_PPM;Quecksilber Totalgehalt gemäss VBBo in mg/kg
+PBT_PPM;Blei Totalgehalt gemäss VBBo in mg/kg
+Hg_AMA_PPM;Quecksilber direkt mit AAS in mg/kg
+PHCA;pH in 0.01 molar CaCl2
+ORG_SUB;Organische Substanz in Gew.-%
