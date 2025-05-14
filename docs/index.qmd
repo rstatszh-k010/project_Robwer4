@@ -155,7 +155,7 @@ familiengarten_2024_ob_sm_lang <- familiengaerten_zeitreihe_lang |>
     geom_hline(yintercept = 100, color = "grey", linewidth = 0.5, linetype = "dashed") 
 ```
 
-Auf dem Familiengartenareal liegen erhöhte Schwermetallgehalte durch Cadmium, Kupfer, Quecksilber, Blei und Zink vor (\@fig-boxplot_sw-gehalte). Insbesondere werden die Richtwerte für Blei und Kupfer deutlich überschritten (Mediane \> 350 %). Auffällig ist zudem, dass der Boxplot für Blei einen hohen Interquartilsabstand sowie einen Ausreißer von über 1500 % des Richtwerts aufweist.
+Auf dem Familiengartenareal liegen erhöhte Schwermetallgehalte durch Cadmium, Kupfer, Quecksilber, Blei und Zink vor (@fig-boxplot_sw-gehalte). Insbesondere werden die Richtwerte für Blei und Kupfer deutlich überschritten (Mediane \> 350 %). Auffällig ist zudem, dass der Boxplot für Blei einen hohen Interquartilsabstand sowie einen Ausreißer von über 1500 % des Richtwerts aufweist.
 
 ## Liniendiagramme
 
