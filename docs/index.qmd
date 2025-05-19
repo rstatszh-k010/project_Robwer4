@@ -10,6 +10,8 @@ execute:
 editor: visual
 ---
 
+<script defer data-domain="rstatszh-k010.github.io" src="https://plausible.io/js/script.file-downloads.js"></script>
+
 ```{r}
 library(tidyverse)
 library(patchwork)
